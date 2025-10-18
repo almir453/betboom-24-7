@@ -136,7 +136,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             except Exception as e:
                 await update.message.reply_text(f"💥 Ошибка: {str(e)}")
 
-async def main():
+def main():
     if not BOT_TOKEN:
         logger.error("❌ TELEGRAM_BOT_TOKEN не установлен")
         return
@@ -151,7 +151,9 @@ async def main():
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
     
     logger.info("🤖 Запуск Telegram Bot...")
-    await application.run_polling()
+    
+    # Используем простой запуск без asyncio.run()
+    application.run_polling()
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    main()

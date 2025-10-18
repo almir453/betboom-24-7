@@ -3,7 +3,7 @@ import asyncio
 import logging
 import re
 from telegram import Update
-from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
+from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, CallbackContext
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -16,11 +16,11 @@ class SimpleBetboomBot:
         self.PROMOCODE_PATTERN = re.compile(r'\b[A-Za-z0-9]{5,20}\b')
         self.activation_history = []
     
-    async def activate_promocode(self, promocode):
+    def activate_promocode(self, promocode):
         """Имитация активации промокода"""
         try:
             # Имитируем задержку как при реальной активации
-            await asyncio.sleep(2)
+            time.sleep(2)
             
             # В реальной версии здесь будет работа с Betboom
             # Сейчас просто имитируем успешную активацию
@@ -31,7 +31,7 @@ class SimpleBetboomBot:
             self.activation_history.append({
                 'promocode': promocode,
                 'success': success,
-                'timestamp': asyncio.get_event_loop().time()
+                'timestamp': time.time()
             })
             
             return success, message
@@ -41,13 +41,13 @@ class SimpleBetboomBot:
 
 bot = SimpleBetboomBot()
 
-async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+def start_command(update: Update, context: CallbackContext):
     user_id = update.effective_user.id
     if user_id not in ADMIN_IDS:
-        await update.message.reply_text("❌ Доступ запрещен")
+        update.message.reply_text("❌ Доступ запрещен")
         return
     
-    await update.message.reply_text(
+    update.message.reply_text(
         "🎰 *Betboom Bot 24/7* 🎰\n\n"
         "🤖 Бот работает в облаке!\n"
         "⏰ 24/7 без перерывов\n\n"
@@ -59,29 +59,29 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         parse_mode='Markdown'
     )
 
-async def promo_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+def promo_command(update: Update, context: CallbackContext):
     user_id = update.effective_user.id
     if user_id not in ADMIN_IDS:
-        await update.message.reply_text("❌ Доступ запрещен")
+        update.message.reply_text("❌ Доступ запрещен")
         return
     
     if not context.args:
-        await update.message.reply_text("❌ Укажите промокод: /promo CODE123")
+        update.message.reply_text("❌ Укажите промокод: /promo CODE123")
         return
     
     promocode = context.args[0]
-    processing_msg = await update.message.reply_text(f"⏳ Активирую промокод: `{promocode}`...", parse_mode='Markdown')
+    processing_msg = update.message.reply_text(f"⏳ Активирую промокод: `{promocode}`...", parse_mode='Markdown')
     
     try:
-        success, message = await bot.activate_promocode(promocode)
+        success, message = bot.activate_promocode(promocode)
         if success:
-            await processing_msg.edit_text(f"✅ *Успех!*\nПромокод: `{promocode}`\n{message}", parse_mode='Markdown')
+            processing_msg.edit_text(f"✅ *Успех!*\nПромокод: `{promocode}`\n{message}", parse_mode='Markdown')
         else:
-            await processing_msg.edit_text(f"❌ *Ошибка!*\nПромокод: `{promocode}`\n{message}", parse_mode='Markdown')
+            processing_msg.edit_text(f"❌ *Ошибка!*\nПромокод: `{promocode}`\n{message}", parse_mode='Markdown')
     except Exception as e:
-        await processing_msg.edit_text(f"💥 Критическая ошибка: {str(e)}")
+        processing_msg.edit_text(f"💥 Критическая ошибка: {str(e)}")
 
-async def status_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+def status_command(update: Update, context: CallbackContext):
     user_id = update.effective_user.id
     if user_id not in ADMIN_IDS:
         return
@@ -96,15 +96,15 @@ async def status_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "Используй /promo CODE для активации"
     )
     
-    await update.message.reply_text(status_msg, parse_mode='Markdown')
+    update.message.reply_text(status_msg, parse_mode='Markdown')
 
-async def history_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+def history_command(update: Update, context: CallbackContext):
     user_id = update.effective_user.id
     if user_id not in ADMIN_IDS:
         return
     
     if not bot.activation_history:
-        await update.message.reply_text("📝 История активаций пуста")
+        update.message.reply_text("📝 История активаций пуста")
         return
     
     history_text = "📝 *Последние активации:*\n\n"
@@ -112,9 +112,9 @@ async def history_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         status = "✅" if item['success'] else "❌"
         history_text += f"{i}. {status} `{item['promocode']}`\n"
     
-    await update.message.reply_text(history_text, parse_mode='Markdown')
+    update.message.reply_text(history_text, parse_mode='Markdown')
 
-async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
+def handle_message(update: Update, context: CallbackContext):
     user_id = update.effective_user.id
     if user_id not in ADMIN_IDS:
         return
@@ -124,33 +124,36 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     if promocodes:
         for promocode in promocodes[:3]:  # Максимум 3 промокода за раз
-            await update.message.reply_text(f"🔍 Найден промокод: `{promocode}`\nАктивирую...", parse_mode='Markdown')
+            update.message.reply_text(f"🔍 Найден промокод: `{promocode}`\nАктивирую...", parse_mode='Markdown')
             
             try:
-                success, message = await bot.activate_promocode(promocode)
+                success, message = bot.activate_promocode(promocode)
                 if success:
-                    await update.message.reply_text(f"✅ Успех: `{promocode}`", parse_mode='Markdown')
+                    update.message.reply_text(f"✅ Успех: `{promocode}`", parse_mode='Markdown')
                 else:
-                    await update.message.reply_text(f"❌ Ошибка: `{promocode}` - {message}", parse_mode='Markdown')
+                    update.message.reply_text(f"❌ Ошибка: `{promocode}` - {message}", parse_mode='Markdown')
             except Exception as e:
-                await update.message.reply_text(f"💥 Ошибка: {str(e)}")
+                update.message.reply_text(f"💥 Ошибка: {str(e)}")
 
 def main():
     if not BOT_TOKEN:
         logger.error("❌ TELEGRAM_BOT_TOKEN не установлен")
         return
         
-    application = Application.builder().token(BOT_TOKEN).build()
+    updater = Updater(BOT_TOKEN, use_context=True)
+    dp = updater.dispatcher
     
     # Добавляем обработчики
-    application.add_handler(CommandHandler("start", start_command))
-    application.add_handler(CommandHandler("promo", promo_command))
-    application.add_handler(CommandHandler("status", status_command))
-    application.add_handler(CommandHandler("history", history_command))
-    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
+    dp.add_handler(CommandHandler("start", start_command))
+    dp.add_handler(CommandHandler("promo", promo_command))
+    dp.add_handler(CommandHandler("status", status_command))
+    dp.add_handler(CommandHandler("history", history_command))
+    dp.add_handler(MessageHandler(Filters.text & ~Filters.command, handle_message))
     
     logger.info("🤖 Запуск Telegram Bot...")
-    application.run_polling()
+    updater.start_polling()
+    updater.idle()
 
 if __name__ == "__main__":
+    import time
     main()

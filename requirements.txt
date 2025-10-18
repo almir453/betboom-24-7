@@ -1,4 +1,1 @@
 python-telegram-bot==21.7
-telethon==1.28.5
-playwright==1.40.0
-requests==2.31.0

@@ -3,5 +3,12 @@ services:
     name: betboom-24-7
     env: python
     runtime: python-3.11.9
-    buildCommand: pip install -r requirements.txt
+
+    buildCommand: |
+      pip install --upgrade pip
+      pip install --upgrade greenlet
+      pip install -r requirements.txt
+
     startCommand: python railway_bot.py
+
+    autoDeploy: true   # Render автоматически перезапускает проект после push

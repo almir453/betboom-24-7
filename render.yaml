@@ -8,10 +8,11 @@ services:
       apt-get update && apt-get install -y build-essential libnss3 libatk-bridge2.0-0 libdrm2 libxkbcommon0 libgbm1 libasound2 wget unzip
       pip install --upgrade pip setuptools wheel
       pip install -r requirements.txt
-      # Установка браузера Chromium с зависимостями
-      playwright install --with-deps chromium
-      mkdir -p /opt/render/.cache/ms-playwright
-      cp -r ~/.cache/ms-playwright/* /opt/render/.cache/ms-playwright/ || true
     startCommand: |
       export PLAYWRIGHT_BROWSERS_PATH=/opt/render/.cache/ms-playwright
+      if [ ! -d "$PLAYWRIGHT_BROWSERS_PATH/chromium" ]; then
+        echo "⬇️ Устанавливаем Playwright Chromium..."
+        playwright install --with-deps chromium
+      fi
+      echo "✅ Chromium готов, запускаем бота..."
       python railway_bot.py

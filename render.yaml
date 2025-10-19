@@ -4,6 +4,7 @@ services:
     env: docker
     plan: free
     image: python:3.13
+
     buildCommand: |
       apt-get update && apt-get install -y \
         build-essential \
@@ -24,9 +25,12 @@ services:
         xvfb
       pip install --upgrade pip setuptools wheel
       pip install -r requirements.txt
-      python -m playwright install --with-deps chromium
-      mkdir -p /opt/render/.cache/ms-playwright
+      python -m playwright install chromium
+      python -m playwright install-deps
+      mkdir -p /opt/render/.cache/ms-playwright/chromium-1187/chrome-linux/
       cp -r /root/.cache/ms-playwright/* /opt/render/.cache/ms-playwright/ || true
+
     startCommand: |
       export PLAYWRIGHT_BROWSERS_PATH=/opt/render/.cache/ms-playwright
+      export PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
       python railway_bot.py

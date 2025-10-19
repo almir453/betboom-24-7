@@ -4,15 +4,16 @@ services:
     env: docker
     plan: free
     image: python:3.13
+
     buildCommand: |
       apt-get update && apt-get install -y wget curl unzip fonts-liberation libnss3 libatk-bridge2.0-0 libdrm2 libxkbcommon0 libgbm1 libasound2
       pip install --upgrade pip setuptools wheel
       pip install -r requirements.txt
-      # Устанавливаем браузеры сразу после зависимостей
-      playwright install --with-deps chromium
-      # Создаём кэш и копируем туда бинарники браузеров
-      mkdir -p /opt/render/.cache/ms-playwright/chromium
-      cp -r /root/.cache/ms-playwright/* /opt/render/.cache/ms-playwright/ || true
+
     startCommand: |
       export PLAYWRIGHT_BROWSERS_PATH=/opt/render/.cache/ms-playwright
+      if [ ! -f "$PLAYWRIGHT_BROWSERS_PATH/chromium-headless-shell/chrome-linux/headless_shell" ]; then
+        echo "⬇️ Устанавливаю Chromium (Playwright)..."
+        playwright install --with-deps chromium
+      fi
       python railway_bot.py

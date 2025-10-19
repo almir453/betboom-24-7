@@ -27,5 +27,7 @@ services:
       pip install -r requirements.txt
 
     startCommand: |
+      echo "Installing Chromium for Playwright..."
       python -m playwright install --with-deps chromium
+      echo "Chromium installed. Starting bot..."
       python railway_bot.py

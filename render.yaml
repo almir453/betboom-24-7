@@ -1,7 +1,7 @@
 services:
   - type: worker
     name: betboom-bot
-    env: docker
+    env: python
     plan: free
     buildCommand: |
       apt-get update && apt-get install -y build-essential
@@ -9,4 +9,3 @@ services:
       pip install -r requirements.txt
       playwright install --with-deps chromium
     startCommand: python railway_bot.py
-    image: python:3.11.9

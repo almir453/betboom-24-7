@@ -5,12 +5,13 @@ services:
     plan: free
     image: python:3.13
     buildCommand: |
-      apt-get update && apt-get install -y wget gnupg ca-certificates fonts-liberation libasound2 libatk-bridge2.0-0 libatk1.0-0 libcups2 libdrm2 libxkbcommon0 libgbm1 libnspr4 libnss3 libxcomposite1 libxdamage1 libxrandr2 xdg-utils libu2f-udev libvulkan1
+      apt-get update && apt-get install -y build-essential libnss3 libatk-bridge2.0-0 libdrm2 libxkbcommon0 libgbm1 libasound2 wget unzip
       pip install --upgrade pip setuptools wheel
       pip install -r requirements.txt
+      # Установка браузера Chromium с зависимостями
+      playwright install --with-deps chromium
+      mkdir -p /opt/render/.cache/ms-playwright
+      cp -r ~/.cache/ms-playwright/* /opt/render/.cache/ms-playwright/ || true
     startCommand: |
-      echo "➡ Проверка браузеров Playwright..."
-      python -m playwright install chromium --with-deps || true
-      export PLAYWRIGHT_BROWSERS_PATH=$(python -c "from playwright._impl._driver import compute_driver_executable; import os; print(os.path.dirname(compute_driver_executable()))")
-      echo "✅ Браузеры установлены в $PLAYWRIGHT_BROWSERS_PATH"
+      export PLAYWRIGHT_BROWSERS_PATH=/opt/render/.cache/ms-playwright
       python railway_bot.py

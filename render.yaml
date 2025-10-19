@@ -7,10 +7,9 @@ services:
       apt-get update && apt-get install -y build-essential
       pip install --upgrade pip setuptools wheel
       pip install -r requirements.txt
-      playwright install --with-deps chromium
     startCommand: python railway_bot.py
     envVars:
       - key: PYTHON_VERSION
-        value: 3.10.13  # Оставляем, но Render может использовать более новую версию
+        value: 3.11.9  # Используем Python 3.11 для лучшей совместимости
       - key: TELEGRAM_BOT_TOKEN
-        sync: false  # Убедитесь, что токен задан в панели Render
+        sync: false  # Токен задайте в панели Render

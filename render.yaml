@@ -10,4 +10,4 @@ services:
     startCommand: python railway_bot.py
     envVars:
       - key: PYTHON_VERSION
-        value: 3.11.9
+        value: 3.10.13

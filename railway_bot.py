@@ -193,4 +193,4 @@ if __name__ == "__main__":
     except KeyboardInterrupt:
         logger.info("⚠️ Программа завершена пользователем.")
     except Exception as e:
-        logger.error(f"❌ Ошибка в
+        logger.error(f"❌ Ошибка в главной функции: {e}")

@@ -1,21 +1,18 @@
-import os
-import asyncio
 import logging
-import re
-import time
 import requests
+import re
+import asyncio
 from telethon import TelegramClient, events
-from telegram import Update
-from telegram.ext import Application, MessageHandler, filters, ContextTypes
-
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+from playwright.async_api import async_playwright
+import os
+import random
+import pickle
 
 # === Конфигурация ===
 API_ID = 21658972
 API_HASH = '175d08b358ee5a8c3c7f9555e90c7380'
 SESSION_NAME = 'my_session'
-BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN')
+BOT_TOKEN = "7996821935:AAG4TMSyo_00gW0tcv5D7Ojosu09edG8Tyk"
 CHAT_ID = "8370087721"
 
 # ID отслеживаемых групп
@@ -23,154 +20,171 @@ GROUP_IDS = [-1002445382077, -1003125973812, -1002276863165, -1007994393341]
 
 # === Регулярное выражение для поиска промокодов ===
 PROMOCODE_PATTERN = re.compile(
-    r'\b(?!BETBOOM\b)(?!SLIV_FRIXA\b)(?!twitch\b)(?!shadowkekw\b)(?!https\b)([A-Za-z0-9]{5,20})\b',
+    r'\b(?!BETBOOM\b)(?!SLIV_FRIXA\b)(?!twitch\b)(?!shadowkekw\b)(?!https\b)([A/-Za-z0-9]{5,20})\b',
     re.IGNORECASE
 )
 
-class BetboomBot:
-    def __init__(self):
-        self.activation_history = []
-        self.telethon_client = None
-    
-    async def activate_promocode(self, promocode, source="manual"):
-        """Активация промокода"""
-        try:
-            # Имитация задержки как при реальной активации
-            await asyncio.sleep(2)
-            success = True
-            message = "✅ Промокод успешно активирован"
-            
-            self.activation_history.append({
-                'promocode': promocode,
-                'success': success,
-                'timestamp': time.time(),
-                'source': source
-            })
-            
-            # Логируем в Telegram
-            source_text = "из группы" if source == "group" else "вручную"
-            self.send_log(f"🎰 Активирован промокод {source_text}: `{promocode}`")
-            
-            return success, message
-            
-        except Exception as e:
-            error_msg = f"❌ Ошибка: {str(e)}"
-            self.send_log(f"💥 {error_msg}")
-            return False, error_msg
-    
-    def send_log(self, message):
-        """Отправка логов в Telegram"""
-        url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
-        payload = {
-            "chat_id": CHAT_ID,
-            "text": message,
-            "parse_mode": "Markdown"
-        }
-        try:
-            requests.post(url, json=payload)
-        except Exception as e:
-            logger.error(f"Ошибка отправки лога: {e}")
-    
-    async def start_group_monitoring(self):
-        """Запуск мониторинга Telegram групп"""
-        try:
-            self.telethon_client = TelegramClient(SESSION_NAME, API_ID, API_HASH)
-            
-            @self.telethon_client.on(events.NewMessage(chats=GROUP_IDS))
-            async def handler(event):
-                message_text = event.message.text.strip() if event.message.text else ""
-                logger.info(f"📩 Получено сообщение из группы: {repr(message_text)}")
+# === Логирование ===
+class TelegramLogHandler(logging.Handler):
+    def emit(self, record):
+        log_entry = self.format(record)
+        send_log_to_telegram(log_entry)
 
-                promocodes = [p for p in PROMOCODE_PATTERN.findall(message_text)]
 
-                if promocodes:
-                    logger.info(f"🔍 Найдены промокоды в группе: {promocodes}")
-                    self.send_log(f"🔍 Найдены промокоды в группе: `{promocodes}`")
-                    
-                    for promocode in promocodes[:3]:  # Максимум 3 промокода за раз
-                        success, message = await self.activate_promocode(promocode, "group")
-                        if success:
-                            logger.info(f"🎉 Промокод '{promocode}' активирован из группы")
-                            self.send_log(f"✅ Автоматически активирован: `{promocode}`")
-                        else:
-                            logger.info(f"💥 Промокод '{promocode}' не активирован")
+def send_log_to_telegram(message):
+    url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
+    payload = {"chat_id": CHAT_ID, "text": message, "parse_mode": "Markdown"}
+    try:
+        requests.post(url, json=payload)
+    except Exception as e:
+        print(f"Ошибка отправки лога в Telegram: {e}")
+
+
+logger = logging.getLogger("__main__")
+logger.setLevel(logging.INFO)
+console_handler = logging.StreamHandler()
+console_handler.setFormatter(logging.Formatter("%(asctime)s - %(levelname)s - %(message)s"))
+logger.addHandler(console_handler)
+telegram_handler = TelegramLogHandler()
+logger.addHandler(telegram_handler)
+logger.info("✅ Бот запущен, логи отправляются в консоль и Telegram.")
+
+# === Инициализация Telegram-клиента ===
+client = TelegramClient(SESSION_NAME, API_ID, API_HASH, timeout=10)
+
+# === Playwright и работа с куками ===
+browser = None
+page = None
+
+
+async def save_cookies(page, file_path="cookies.pkl"):
+    cookies = await page.context.cookies()
+    with open(file_path, "wb") as f:
+        pickle.dump(cookies, f)
+    logger.info(f"🍪 Куки сохранены в файл {file_path}.")
+
+
+async def load_cookies(page, file_path="cookies.pkl"):
+    if os.path.exists(file_path):
+        try:
+            with open(file_path, "rb") as f:
+                cookies = pickle.load(f)
+            await page.context.add_cookies(cookies)
+            logger.info("✅ Куки загружены успешно.")
+        except Exception as e:
+            logger.error(f"⚠️ Ошибка загрузки куки: {e}")
+
+
+async def init_playwright():
+    global browser, page
+    playwright = await async_playwright().start()
+    browser = await playwright.chromium.launch(headless=True)
+    context = await browser.new_context(user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64)")
+    page = await context.new_page()
+    await load_cookies(page)
+    await page.goto("https://betboom.ru/actions#online", timeout=60000)
+    await save_cookies(page)
+
+
+# === Ввод промокодов ===
+async def enter_promocode(promocode):
+    try:
+        await page.wait_for_selector("#promocode", timeout=3000)
+        await page.locator("#promocode").fill(promocode)
+        await page.locator("#buttonpromo").click()
+        logger.info(f"✅ Промокод '{promocode}' введён.")
+        return True
+    except Exception as e:
+        logger.error(f"⚠️ Ошибка при вводе промокода '{promocode}': {e}")
+        return False
+
+
+async def check_errors():
+    try:
+        await asyncio.sleep(4)
+        error_element = await page.query_selector("span.Alert__AlertText-sc-1389vo9-1")
+        if error_element:
+            error_text = (await error_element.inner_text()).strip().lower()
+            logger.info(f"⚠️ Ошибка: {error_text}")
+            return error_text
+    except Exception as e:
+        logger.error(f"⚠️ Ошибка при проверке ошибок: {e}")
+
+
+async def human_like_delay():
+    delay = random.uniform(0.7, 0.8)
+    await asyncio.sleep(delay)
+    logger.info(f"⏳ Задержка: {delay:.2f} секунд.")
+
+
+async def enter_promocode_with_retry(promocode):
+    first_attempt = True
+    while True:
+        if first_attempt:
+            logger.info(f"🔁 Первая попытка ввода промокода: {promocode}")
+            success = await enter_promocode(promocode)
+            first_attempt = False
+        else:
+            logger.info(f"🔁 Повторная попытка ввода промокода: {promocode}")
+            await human_like_delay()
+            success = await enter_promocode(promocode)
+
+        if success:
+            error = await check_errors()
+            if error:
+                if "технические работы" in error:
+                    logger.info(f"⚠️ Ошибка '{error}', повтор через 0.9 секунды.")
+                    await asyncio.sleep(0.9)
+                    continue
+                elif "лимит" in error or "активирован" in error or "не существует" in error:
+                    logger.info(f"❌ Промокод '{promocode}' не применён: {error}")
+                    return False
                 else:
-                    logger.info("⚠️ Промокоды не найдены в сообщении")
+                    logger.info(f"✅ Промокод '{promocode}' успешно применён! (неизвестная ошибка)")
+                    return True
+            else:
+                logger.info(f"✅ Промокод '{promocode}' успешно применён (без ошибок)!")
+                return True
+        else:
+            await asyncio.sleep(0.5)
 
-            await self.telethon_client.start()
-            logger.info("✅ Мониторинг групп запущен")
-            self.send_log("✅ Мониторинг групп запущен!")
-            return True
-            
-        except Exception as e:
-            logger.error(f"❌ Ошибка запуска мониторинга: {e}")
-            self.send_log(f"❌ Ошибка мониторинга групп: {e}")
-            return False
 
-bot = BetboomBot()
+# === Обработка новых сообщений ===
+@client.on(events.NewMessage(chats=GROUP_IDS))
+async def handler(event):
+    message_text = event.message.text.strip() if event.message.text else ""
+    logger.info(f"📩 Получено сообщение: {repr(message_text)}")
 
-async def handle_private_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Обработка личных сообщений с промокодами"""
-    message_text = update.message.text
-    
-    # Ищем промокоды в сообщении
-    promocodes = PROMOCODE_PATTERN.findall(message_text)
-    
+    promocodes = [p for p in PROMOCODE_PATTERN.findall(message_text)]
+
     if promocodes:
-        for promocode in promocodes[:3]:  # Максимум 3 промокода за раз
-            # Сразу отправляем сообщение о начале обработки
-            processing_msg = await update.message.reply_text(
-                f"🔍 Найден промокод: `{promocode}`\n⏳ Активирую...", 
-                parse_mode='Markdown'
-            )
-            
-            try:
-                success, message = await bot.activate_promocode(promocode, "manual")
-                if success:
-                    await processing_msg.edit_text(
-                        f"✅ *Успех!*\nПромокод: `{promocode}`\n{message}", 
-                        parse_mode='Markdown'
-                    )
-                else:
-                    await processing_msg.edit_text(
-                        f"❌ *Ошибка!*\nПромокод: `{promocode}`\n{message}", 
-                        parse_mode='Markdown'
-                    )
-            except Exception as e:
-                await processing_msg.edit_text(f"💥 Ошибка: {str(e)}")
+        logger.info(f"🔍 Найдены промокоды: {promocodes}")
+        tasks = [enter_promocode_with_retry(promocode) for promocode in promocodes]
+        await asyncio.gather(*tasks)
     else:
-        # Если нет промокодов, показываем справку
-        await update.message.reply_text(
-            "🎰 *Betboom Bot 24/7*\n\n"
-            "Просто отправь мне промокод сообщением!\n\n"
-            "Примеры:\n"
-            "• `PROMO123`\n"
-            "• `Вот промокод ABC456`\n" 
-            "• `ABC789 для активации`\n\n"
-            "🤖 Бот автоматически найдет и активирует промокод!",
-            parse_mode='Markdown'
-        )
+        logger.info("⚠️ Промокоды не найдены.")
 
+
+# === Основная функция ===
 async def main():
-    logger.info("🚀 Запуск Betboom Bot 24/7...")
-    
-    # Запускаем мониторинг групп
-    monitoring_success = await bot.start_group_monitoring()
-    if not monitoring_success:
-        logger.error("❌ Не удалось запустить мониторинг групп")
-        return
-    
-    # Запускаем Telegram бота
-    application = Application.builder().token(BOT_TOKEN).build()
-    
-    # Только обработчик сообщений - никаких команд
-    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_private_message))
-    
-    logger.info("🤖 Запуск Telegram Bot...")
-    bot.send_log("🚀 Betboom Bot 24/7 запущен!\n📡 Мониторинг групп активен\n💬 Просто присылай промокоды сообщениями!")
-    
-    # Запускаем polling
-    await application.run_polling()
+    try:
+        await init_playwright()
+        logger.info("🚀 Telegram клиент запускается...")
+        await client.start()
+        logger.info("✅ Telegram клиент запущен.")
+        await client.run_until_disconnected()
+    except Exception as e:
+        logger.error(f"❌ Ошибка: {e}")
+    finally:
+        if browser is not None:
+            await browser.close()
+        await client.disconnect()
+
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    try:
+        asyncio.run(main())
+    except KeyboardInterrupt:
+        logger.info("⚠️ Программа завершена пользователем.")
+    except Exception as e:
+        logger.error(f"❌ Ошибка в главной функции: {e}")

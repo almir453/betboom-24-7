@@ -2,6 +2,6 @@ services:
   - type: worker
     name: betboom-24-7
     env: python
-    runtime: python-3.12.5
+    runtime: python-3.11.9
     buildCommand: pip install -r requirements.txt
     startCommand: python railway_bot.py

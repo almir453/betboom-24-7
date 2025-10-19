@@ -4,30 +4,13 @@ services:
     env: docker
     plan: free
     image: python:3.13
-
     buildCommand: |
-      apt-get update && apt-get install -y \
-        build-essential \
-        libnss3 \
-        libatk-bridge2.0-0 \
-        libdrm2 \
-        libxkbcommon0 \
-        libgbm1 \
-        libasound2 \
-        libxcomposite1 \
-        libxdamage1 \
-        libxrandr2 \
-        libgtk-3-0 \
-        libxshmfence1 \
-        libegl1 \
-        wget \
-        curl \
-        xvfb
+      apt-get update && apt-get install -y wget curl unzip fonts-liberation libnss3 libatk-bridge2.0-0 libdrm2 libxkbcommon0 libgbm1 libasound2
       pip install --upgrade pip setuptools wheel
       pip install -r requirements.txt
-
+      playwright install chromium
+      mkdir -p /opt/render/.cache/ms-playwright/chromium
+      cp -r /root/.cache/ms-playwright/chromium-* /opt/render/.cache/ms-playwright/ || true
     startCommand: |
-      echo "Installing Chromium for Playwright..."
-      python -m playwright install --with-deps chromium
-      echo "Chromium installed. Starting bot..."
+      export PLAYWRIGHT_BROWSERS_PATH=/opt/render/.cache/ms-playwright
       python railway_bot.py

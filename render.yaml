@@ -25,13 +25,7 @@ services:
         xvfb
       pip install --upgrade pip setuptools wheel
       pip install -r requirements.txt
-      # Устанавливаем Playwright и браузеры прямо в системный каталог
-      python -m playwright install-deps
-      python -m playwright install chromium --with-deps
-      mkdir -p /ms-playwright
-      cp -r /root/.cache/ms-playwright/* /ms-playwright/ || true
 
     startCommand: |
-      export PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
-      export PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
+      python -m playwright install --with-deps chromium
       python railway_bot.py

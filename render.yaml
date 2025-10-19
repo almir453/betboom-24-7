@@ -1,19 +1,14 @@
 services:
   - type: worker
-    name: betboom-24-7
+    name: betboom-bot
     env: python
-    runtime: python-3.11.9  # ✅ стабильная версия Python
-
+    plan: free
     buildCommand: |
+      apt-get update && apt-get install -y build-essential
       pip install --upgrade pip setuptools wheel
       pip install greenlet==3.0.3
       pip install -r requirements.txt
-
-    startCommand: |
-      echo "🚀 Запуск BetBoom бота..."
-      while true; do
-        python railway_bot.py || echo "⚠️ Бот упал, перезапуск через 5 секунд..."
-        sleep 5
-      done
-
-    autoDeploy: true  # 🔁 Render автоматически пересобирает и перезапускает после push
+    startCommand: python railway_bot.py
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11

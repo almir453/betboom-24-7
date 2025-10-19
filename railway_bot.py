@@ -8,12 +8,30 @@ import os
 import random
 import pickle
 
+# Патч для imghdr, если требуется
+try:
+    import imghdr
+except ImportError:
+    import imageio
+    def what(file, h=None):
+        try:
+            img = imageio.imread(file)
+            return img.format.lower() if img.format else None
+        except:
+            return None
+    imghdr = type('imghdr', (), {'what': what})
+
 # === Конфигурация ===
 API_ID = 21658972
 API_HASH = '175d08b358ee5a8c3c7f9555e90c7380'
 SESSION_NAME = 'my_session'
-BOT_TOKEN = "7996821935:AAG4TMSyo_00gW0tcv5D7Ojosu09edG8Tyk"
+BOT_TOKEN = "7996821935:AAG4TMSyo_00gW0tcv5D7Ojosu09edG8Tyk"  # Убедитесь, что это ваш реальный токен
 CHAT_ID = "8370087721"
+
+# Проверка токена
+if not BOT_TOKEN:
+    logger.error("❌ BOT_TOKEN не установлен!")
+    raise ValueError("BOT_TOKEN must be set in the code")
 
 # ID отслеживаемых групп
 GROUP_IDS = [-1002445382077, -1003125973812, -1002276863165, -1007994393341]
@@ -30,7 +48,6 @@ class TelegramLogHandler(logging.Handler):
         log_entry = self.format(record)
         send_log_to_telegram(log_entry)
 
-
 def send_log_to_telegram(message):
     url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
     payload = {"chat_id": CHAT_ID, "text": message, "parse_mode": "Markdown"}
@@ -38,7 +55,6 @@ def send_log_to_telegram(message):
         requests.post(url, json=payload)
     except Exception as e:
         print(f"Ошибка отправки лога в Telegram: {e}")
-
 
 logger = logging.getLogger("__main__")
 logger.setLevel(logging.INFO)
@@ -56,13 +72,11 @@ client = TelegramClient(SESSION_NAME, API_ID, API_HASH, timeout=10)
 browser = None
 page = None
 
-
 async def save_cookies(page, file_path="cookies.pkl"):
     cookies = await page.context.cookies()
     with open(file_path, "wb") as f:
         pickle.dump(cookies, f)
     logger.info(f"🍪 Куки сохранены в файл {file_path}.")
-
 
 async def load_cookies(page, file_path="cookies.pkl"):
     if os.path.exists(file_path):
@@ -74,7 +88,6 @@ async def load_cookies(page, file_path="cookies.pkl"):
         except Exception as e:
             logger.error(f"⚠️ Ошибка загрузки куки: {e}")
 
-
 async def init_playwright():
     global browser, page
     playwright = await async_playwright().start()
@@ -84,7 +97,6 @@ async def init_playwright():
     await load_cookies(page)
     await page.goto("https://betboom.ru/actions#online", timeout=60000)
     await save_cookies(page)
-
 
 # === Ввод промокодов ===
 async def enter_promocode(promocode):
@@ -98,7 +110,6 @@ async def enter_promocode(promocode):
         logger.error(f"⚠️ Ошибка при вводе промокода '{promocode}': {e}")
         return False
 
-
 async def check_errors():
     try:
         await asyncio.sleep(4)
@@ -110,12 +121,10 @@ async def check_errors():
     except Exception as e:
         logger.error(f"⚠️ Ошибка при проверке ошибок: {e}")
 
-
 async def human_like_delay():
     delay = random.uniform(0.7, 0.8)
     await asyncio.sleep(delay)
     logger.info(f"⏳ Задержка: {delay:.2f} секунд.")
-
 
 async def enter_promocode_with_retry(promocode):
     first_attempt = True
@@ -148,7 +157,6 @@ async def enter_promocode_with_retry(promocode):
         else:
             await asyncio.sleep(0.5)
 
-
 # === Обработка новых сообщений ===
 @client.on(events.NewMessage(chats=GROUP_IDS))
 async def handler(event):
@@ -163,7 +171,6 @@ async def handler(event):
         await asyncio.gather(*tasks)
     else:
         logger.info("⚠️ Промокоды не найдены.")
-
 
 # === Основная функция ===
 async def main():
@@ -180,11 +187,10 @@ async def main():
             await browser.close()
         await client.disconnect()
 
-
 if __name__ == "__main__":
     try:
         asyncio.run(main())
     except KeyboardInterrupt:
         logger.info("⚠️ Программа завершена пользователем.")
     except Exception as e:
-        logger.error(f"❌ Ошибка в главной функции: {e}")
+        logger.error(f"❌ Ошибка в
